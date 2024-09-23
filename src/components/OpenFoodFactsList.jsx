@@ -7,12 +7,14 @@ const OpenFoodFactsList = ({ search }) => {
 
    // State variables for products, categories, filters, and error/loading handling
   const [products, setProducts] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [sortOption, setSortOption] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [productsPerPage] = useState(20);
   const navigate = useNavigate();
 
   // Pagination states
@@ -33,12 +35,32 @@ const OpenFoodFactsList = ({ search }) => {
 
   // Fetch products data from the API
   const fetchProducts = async () => {
+    setLoading(true);
     try {
-      const response = await fetch('https://world.openfoodfacts.org/api/v2/search?fields=id,product_name,image_url,categories,ingredients_text,nutriscore_grade&page_size=500');
+      let url = `https://world.openfoodfacts.org/api/v2/search?fields=id,product_name,image_url,categories,ingredients_text,nutriscore_grade&page=${currentPage}&page_size=${productsPerPage}`;
+      
+      if (search) {
+        url += `&search_terms=${encodeURIComponent(search)}`;
+      }
+      if (selectedCategory) {
+        url += `&categories_tags=${encodeURIComponent(selectedCategory)}`;
+      }
+      if (sortOption) {
+        const sortMapping = {
+          'name-asc': 'product_name',
+          'name-desc': '-product_name',
+          'grade-asc': 'nutriscore_grade',
+          'grade-desc': '-nutriscore_grade'
+        };
+        url += `&sort_by=${sortMapping[sortOption]}`;
+      }
+
+      const response = await fetch(url);
       const data = await response.json();
       
       if (data.products) {
         setProducts(data.products);
+        setTotalProducts(data.count);
         setError(null);
       } else {
         setError('No products found');
@@ -176,7 +198,7 @@ const OpenFoodFactsList = ({ search }) => {
             )}
             <div className="p-4 flex-grow flex flex-col justify-between">
               <div>
-                <h3 className="text-lg font-semibold mb-2 line-clamp-2 ">{product.product_name}</h3>
+                <h3 className="text-lg font-semibold mb-2 line-clamp-2">{product.product_name}</h3>
                 <p className="text-sm mb-1"><span className="font-medium">Category:</span> {product.categories?.split(',')[0] || 'N/A'}</p>
                 <p className="text-sm mb-2 line-clamp-3"><span className="font-medium">Ingredients:</span> {product.ingredients_text || 'N/A'}</p>
               </div>
