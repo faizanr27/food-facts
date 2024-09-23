@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Pagination from './Pagination';
 
+// Main component to list OpenFoodFacts products
 const OpenFoodFactsList = ({ search }) => {
+
+   // State variables for products, categories, filters, and error/loading handling
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -11,15 +15,23 @@ const OpenFoodFactsList = ({ search }) => {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [productsPerPage] = useState(12);
+
+  // Fetch data when the component mounts
   useEffect(() => {
     fetchProducts();
     fetchCategories();
   }, []);
 
+
+  // Filter and sort products whenever search, category, or sort options change
   useEffect(() => {
     filterAndSortProducts();
   }, [search, selectedCategory, sortOption, products]);
 
+  // Fetch products data from the API
   const fetchProducts = async () => {
     try {
       const response = await fetch('https://world.openfoodfacts.org/api/v2/search?fields=id,product_name,image_url,categories,ingredients_text,nutriscore_grade&page_size=500');
@@ -38,36 +50,38 @@ const OpenFoodFactsList = ({ search }) => {
     }
   };
 
+  // Fetch categories data from the API
   const fetchCategories = async () => {
     try {
       const response = await fetch('https://world.openfoodfacts.org/categories.json');
       const data = await response.json();
       if (data.tags) {
-        setCategories(data.tags.map(tag => tag.name).slice(0, 20)); // Limiting to 20 categories for simplicity
+        setCategories(data.tags.map(tag => tag.name).slice(0, 20));
       }
     } catch (err) {
       console.error('Error fetching categories:', err);
     }
   };
 
+  // Filter and sort the products based on user input
   const filterAndSortProducts = () => {
     let result = [...products];
 
-    // Apply search filter
+    // Filter based on search term
     if (search) {
       result = result.filter(product => 
         product.product_name.toLowerCase().includes(search.toLowerCase())
       );
     }
 
-    // Apply category filter
+    // Filter based on selected category
     if (selectedCategory) {
       result = result.filter(product => 
         product.categories?.toLowerCase().includes(selectedCategory.toLowerCase())
       );
     }
 
-    // Apply sorting
+    // Sort products based on user-selected option
     if (sortOption === 'name-asc') {
       result.sort((a, b) => a.product_name.localeCompare(b.product_name));
     } else if (sortOption === 'name-desc') {
@@ -83,12 +97,15 @@ const OpenFoodFactsList = ({ search }) => {
 
   const handleCategoryChange = (e) => {
     setSelectedCategory(e.target.value);
+    setCurrentPage(1);
   };
 
   const handleSortChange = (e) => {
     setSortOption(e.target.value);
+    setCurrentPage(1);
   };
 
+  // Navigate to the product details page when a product is clicked
   const handleDetails = (productId) => {
     navigate(`/product/${productId}`);
   };
@@ -104,12 +121,22 @@ const OpenFoodFactsList = ({ search }) => {
     return colors[score?.toLowerCase()] || 'bg-gray-500';
   };
 
+  // Pagination logic
+  const indexOfLastProduct = currentPage * productsPerPage;
+  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
+  const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  // Render loading or error messages
   if (loading) return <p className="text-center p-4">Loading...</p>;
   if (error) return <p className="text-red-500 text-center p-4">{error}</p>;
 
   return (
-    <div className="container w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ">
+    <div className="container w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Filters, search, and sort options */}
       <div className="mb-4 flex flex-wrap gap-4">
+        {/* Category filter */}
         <select
           className="p-2 border rounded"
           value={selectedCategory}
@@ -120,6 +147,7 @@ const OpenFoodFactsList = ({ search }) => {
             <option key={index} value={category}>{category}</option>
           ))}
         </select>
+        {/* Sorting options */}
         <select
           className="p-2 border rounded"
           value={sortOption}
@@ -133,7 +161,8 @@ const OpenFoodFactsList = ({ search }) => {
         </select>
       </div>
       <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {filteredProducts.map(product => (
+        {/* Display the products list */}
+        {currentProducts.map(product => (
           <div key={product.id} onClick={() => handleDetails(product.id)}
                className="bg-white rounded-lg shadow-xl hover:shadow-2xl transition-shadow duration-300 overflow-hidden flex flex-col hover:border-blue-300 hover:border-2">
             {product.image_url && (
@@ -162,6 +191,15 @@ const OpenFoodFactsList = ({ search }) => {
             </div>
           </div>
         ))}
+      </div>
+      {/* Render pagination */}
+      <div className="mt-8 flex justify-center">
+        <Pagination
+          productsPerPage={productsPerPage}
+          totalProducts={filteredProducts.length}
+          paginate={paginate}
+          currentPage={currentPage}
+        />
       </div>
     </div>
   );
